@@ -17,6 +17,8 @@ ENV TRANSFORMERS_CACHE=/app/hf_cache
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
+    cmake \
+    build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
