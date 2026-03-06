@@ -63,6 +63,6 @@ pydub
 audiotsm
 praat-parselmouth
 
-# System Monitoring (for concurrency modifier)
-pynvml
-psutil
+# System Monitoring (for concurrency modifier) - removed due to build issues
+# pynvml
+# psutil
