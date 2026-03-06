@@ -24,10 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements first for caching
-COPY requirements-runpod.txt .
+COPY requirements-nvidia.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-runpod.txt
+RUN pip install --no-cache-dir -r requirements-nvidia.txt
 
 # Copy application code
 COPY engine.py .
