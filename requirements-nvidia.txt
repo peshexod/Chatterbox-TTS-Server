@@ -63,6 +63,9 @@ pydub
 audiotsm
 praat-parselmouth
 
-# System Monitoring (for concurrency modifier) - removed due to build issues
-# pynvml
-# psutil
+# System Monitoring (for concurrency modifier)
+pynvml
+psutil
+
+# onnx - use prebuilt wheel to avoid compilation
+onnx>=1.15.0

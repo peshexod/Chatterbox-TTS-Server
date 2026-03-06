@@ -5,14 +5,10 @@
 
 import runpod.serverless
 import handler
+import concurrency
 
-# Simple concurrency modifier - RunPod handles it automatically
-def concurrency_modifier(job_count, active_jobs):
-    # Let RunPod handle concurrency automatically
-    return None
-
-# Start RunPod Serverless with handler
+# Start RunPod Serverless with handler and adaptive concurrency
 runpod.serverless.start({
     "handler": handler.handler,
-    "concurrency_modifier": concurrency_modifier
+    "concurrency_modifier": concurrency.adjust_concurrency
 })

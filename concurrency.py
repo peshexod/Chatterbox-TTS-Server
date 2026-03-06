@@ -1,125 +1,104 @@
-# File: concurrency.py
-# Adaptive concurrency modifier for RunPod Serverless
-# Dynamically adjusts worker concurrency based on GPU/CPU/RAM metrics
+#!/usr/bin/env python3
+"""
+Adaptive Concurrency Modifier for RunPod Serverless
+Monitors GPU/CPU usage and adjusts concurrency dynamically
+"""
 
 import os
-import logging
-import threading
 
-logger = logging.getLogger(__name__)
-
-# Configuration for A6000 (48GB)
-MAX_CONCURRENCY = 15
-MIN_CONCURRENCY = 1
-
-# Thresholds
-GPU_MEM_THRESHOLD_HIGH = 85  # % - reduce if above
-GPU_MEM_THRESHOLD_LOW = 60    # % - can scale up if below
-CPU_THRESHOLD_HIGH = 80       # % - reduce if above
-CPU_THRESHOLD_LOW = 50        # % - can scale up if below
-
-# Try to import pynvml for GPU monitoring
-_pynvml_available = False
-_nvml_handle = None
-
+# Try to import monitoring libraries
 try:
     import pynvml
-    pynvml.nvmlInit()
-    _nvml_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-    _pynvml_available = True
-    logger.info("NVML initialized for GPU monitoring")
-except Exception as e:
-    logger.warning(f"NVML not available: {e}")
+    NVML_AVAILABLE = True
+except ImportError:
+    NVML_AVAILABLE = False
 
-# Try to import psutil for CPU/RAM monitoring
-_psutil_available = False
 try:
     import psutil
-    _psutil_available = True
-    logger.info("psutil available for CPU/RAM monitoring")
-except Exception as e:
-    logger.warning(f"psutil not available: {e}")
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
+# Configuration
+GPU_THRESHOLD_HIGH = 90  # At 90% GPU - stop accepting new jobs
+GPU_THRESHOLD_LOW = 50  # At 50% GPU - resume accepting jobs
+CPU_THRESHOLD_HIGH = 90  # At 90% CPU - stop accepting new jobs
+
+# Initialize NVML
+if NVML_AVAILABLE:
+    try:
+        pynvml.nvmlInit()
+        GPU_COUNT = pynvml.nvmlDeviceGetCount()
+    except Exception as e:
+        print(f"Warning: NVML init failed: {e}")
+        GPU_COUNT = 0
+else:
+    GPU_COUNT = 0
 
 
-def get_system_metrics() -> dict:
+def get_gpu_utilization():
+    """Get current GPU utilization percentage"""
+    if not NVML_AVAILABLE or GPU_COUNT == 0:
+        return 0
+    
+    try:
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        return utilization.gpu
+    except Exception:
+        return 0
+
+
+def get_cpu_utilization():
+    """Get current CPU utilization percentage"""
+    if not PSUTIL_AVAILABLE:
+        return 0
+    
+    try:
+        return psutil.cpu_percent(interval=0.1)
+    except Exception:
+        return 0
+
+
+def get_memory_usage():
+    """Get current memory usage percentage"""
+    if not PSUTIL_AVAILABLE:
+        return 0
+    
+    try:
+        return psutil.virtual_memory().percent
+    except Exception:
+        return 0
+
+
+def adjust_concurrency(job_count, active_jobs):
     """
-    Get current system metrics (GPU, CPU, RAM).
-    
-    Returns:
-        dict with keys:
-            - gpu_mem_pct: GPU memory usage percentage
-            - gpu_util_pct: GPU utilization percentage  
-            - cpu_pct: CPU usage percentage
-            - ram_pct: RAM usage percentage
-    """
-    metrics = {
-        "gpu_mem_pct": 0,
-        "gpu_util_pct": 0,
-        "cpu_pct": 0,
-        "ram_pct": 0
-    }
-    
-    # GPU metrics
-    if _pynvml_available and _nvml_handle is not None:
-        try:
-            mem_info = pynvml.nvmlDeviceGetMemoryInfo(_nvml_handle)
-            metrics["gpu_mem_pct"] = (mem_info.used / mem_info.total) * 100
-            
-            util = pynvml.nvmlDeviceGetUtilizationRates(_nvml_handle)
-            metrics["gpu_util_pct"] = util.gpu
-        except Exception as e:
-            logger.warning(f"Failed to get GPU metrics: {e}")
-    
-    # CPU/RAM metrics
-    if _psutil_available:
-        try:
-            metrics["cpu_pct"] = psutil.cpu_percent(interval=0.1)
-            metrics["ram_pct"] = psutil.virtual_memory().percent
-        except Exception as e:
-            logger.warning(f"Failed to get CPU/RAM metrics: {e}")
-    
-    return metrics
-
-
-def adjust_concurrency(current_concurrency: int) -> int:
-    """
-    Adjust worker concurrency based on system resource usage.
-    
-    Called periodically by RunPod during worker lifecycle.
+    RunPod concurrency modifier callback.
+    Called before each job is dispatched.
     
     Args:
-        current_concurrency: Current concurrency level
-        
+        job_count: Total number of jobs in the system
+        active_jobs: Number of currently running jobs
+    
     Returns:
-        New concurrency level to use
+        int or None: Maximum number of concurrent jobs to allow, or None for default
     """
-    metrics = get_system_metrics()
+    gpu_util = get_gpu_utilization()
+    cpu_util = get_cpu_utilization()
+    mem_util = get_memory_usage()
     
-    logger.info(
-        f"Concurrency check: current={current_concurrency}, "
-        f"gpu_mem={metrics['gpu_mem_pct']:.1f}%, "
-        f"gpu_util={metrics['gpu_util_pct']:.1f}%, "
-        f"cpu={metrics['cpu_pct']:.1f}%, "
-        f"ram={metrics['ram_pct']:.1f}%"
-    )
+    # If any resource is overloaded, reduce concurrency
+    if gpu_util >= GPU_THRESHOLD_HIGH or cpu_util >= CPU_THRESHOLD_HIGH or mem_util >= 90:
+        # Reduce concurrency - allow fewer jobs
+        new_limit = max(1, active_jobs - 1)
+        print(f"[Concurrency] High load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Limiting to {new_limit} concurrent jobs")
+        return new_limit
     
-    # Check if we should scale DOWN (high load)
-    if (metrics["gpu_mem_pct"] > GPU_MEM_THRESHOLD_HIGH or
-        metrics["cpu_pct"] > CPU_THRESHOLD_HIGH):
-        
-        new_concurrency = max(MIN_CONCURRENCY, current_concurrency - 1)
-        if new_concurrency != current_concurrency:
-            logger.info(f"High load detected, reducing concurrency: {current_concurrency} -> {new_concurrency}")
-        return new_concurrency
+    # If resources are available, allow more jobs
+    if gpu_util < GPU_THRESHOLD_LOW and cpu_util < 70 and mem_util < 70:
+        # Allow up to 2 concurrent jobs if resources available
+        if active_jobs < 2:
+            print(f"[Concurrency] Low load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Allowing more jobs")
+            return None  # Let RunPod decide
     
-    # Check if we can scale UP (low load)
-    if (metrics["gpu_mem_pct"] < GPU_MEM_THRESHOLD_LOW and
-        metrics["cpu_pct"] < CPU_THRESHOLD_LOW):
-        
-        new_concurrency = min(MAX_CONCURRENCY, current_concurrency + 1)
-        if new_concurrency != current_concurrency:
-            logger.info(f"Low load detected, increasing concurrency: {current_concurrency} -> {new_concurrency}")
-        return new_concurrency
-    
-    # Keep current concurrency
-    return current_concurrency
+    return None  # Keep current concurrency
