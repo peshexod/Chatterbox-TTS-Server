@@ -1,53 +1,9 @@
-# ============================================================================
-# REQUIREMENTS for RunPod - Chatterbox TTS Server
-# ============================================================================
-# Optimized for RunPod GPU deployment with CUDA 12.4
-
-# --- PyTorch with CUDA 12.4 ---
-torch==2.4.0
-torchvision==0.19.0
-torchaudio==2.4.0
-
-# --- Chatterbox TTS ---
+# Minimal requirements for RunPod Serverless - Chatterbox TTS
+torch>=2.4.0
 numpy>=1.24.0,<1.26.0
 chatterbox-tts>=0.1.4
-
-# --- RunPod SDK ---
 runpod
-
-# --- Core Web & API ---
-fastapi
-uvicorn[standard]
 soundfile
-
-# --- Audio ---
-librosa==0.10.0
-resampy==0.4.2
-audiotsm
-praat-parselmouth
 pydub
-
-# --- ML & Model Utils ---
-safetensors
-descript-audio-codec
-s3tokenizer
-resemble-perth==1.0.1
-silero-vad==5.1.2
-conformer==0.3.2
-omegaconf==2.3.0
-diffusers==0.29.0
-transformers==4.46.3
-
-# --- S3 Storage ---
-boto3
-
-# --- Utilities ---
-python-multipart
 requests
-Jinja2
-aiofiles
-PyYAML
-unidecode
-inflect
-tqdm
-hf_transfer
+boto3
