@@ -5,8 +5,10 @@
 
 import runpod.serverless
 import handler
+import concurrency
 
 # Wrap the handler function for RunPod Serverless
 runpod.serverless.start({
-    "handler": handler.handler
+    "handler": handler.handler,
+    "concurrency_modifier": concurrency.adjust_concurrency
 })

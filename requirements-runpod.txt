@@ -7,3 +7,7 @@ soundfile
 pydub
 requests
 boto3
+
+# System Monitoring (for concurrency modifier)
+pynvml
+psutil

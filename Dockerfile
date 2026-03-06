@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir -r requirements-runpod.txt
 COPY engine.py .
 COPY handler.py .
 COPY worker.py .
+COPY concurrency.py .
 COPY models.py .
 COPY config.py .
 COPY utils.py .
