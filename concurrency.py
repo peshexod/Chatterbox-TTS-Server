@@ -71,14 +71,13 @@ def get_memory_usage():
         return 0
 
 
-def adjust_concurrency(job_count, active_jobs):
+def adjust_concurrency(current_concurrency):
     """
     RunPod concurrency modifier callback.
     Called before each job is dispatched.
     
     Args:
-        job_count: Total number of jobs in the system
-        active_jobs: Number of currently running jobs
+        current_concurrency: Current number of running jobs
     
     Returns:
         int or None: Maximum number of concurrent jobs to allow, or None for default
@@ -90,14 +89,14 @@ def adjust_concurrency(job_count, active_jobs):
     # If any resource is overloaded, reduce concurrency
     if gpu_util >= GPU_THRESHOLD_HIGH or cpu_util >= CPU_THRESHOLD_HIGH or mem_util >= 90:
         # Reduce concurrency - allow fewer jobs
-        new_limit = max(1, active_jobs - 1)
+        new_limit = max(1, current_concurrency - 1)
         print(f"[Concurrency] High load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Limiting to {new_limit} concurrent jobs")
         return new_limit
     
     # If resources are available, allow more jobs
     if gpu_util < GPU_THRESHOLD_LOW and cpu_util < 70 and mem_util < 70:
         # Allow up to 2 concurrent jobs if resources available
-        if active_jobs < 2:
+        if current_concurrency < 2:
             print(f"[Concurrency] Low load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Allowing more jobs")
             return None  # Let RunPod decide
     
