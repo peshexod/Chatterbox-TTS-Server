@@ -62,3 +62,7 @@ hf_transfer                     # Speed up file transfers
 pydub
 audiotsm
 praat-parselmouth
+
+# System Monitoring (for concurrency modifier)
+pynvml
+psutil
