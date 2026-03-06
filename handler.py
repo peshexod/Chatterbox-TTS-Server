@@ -8,6 +8,7 @@ import logging
 import base64
 import tempfile
 import uuid
+import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 
@@ -222,6 +223,37 @@ def _synthesize_audio(
         return None, str(e)
 
 
+def _convert_wav_to_mp3(wav_bytes: bytes, bitrate: str = "192k") -> Optional[bytes]:
+    """
+    Convert WAV audio to MP3 using ffmpeg.
+    
+    Args:
+        wav_bytes: Raw WAV audio data
+        bitrate: MP3 bitrate (default: 192k)
+        
+    Returns:
+        MP3 audio bytes or None if failed
+    """
+    try:
+        process = subprocess.Popen(
+            ['ffmpeg', '-i', '-', '-b:a', bitrate, '-f', 'mp3', '-'],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        mp3_bytes, stderr = process.communicate(input=wav_bytes, timeout=60)
+        
+        if process.returncode != 0:
+            logger.error(f"ffmpeg error: {stderr.decode()}")
+            return None
+        
+        return mp3_bytes
+        
+    except Exception as e:
+        logger.error(f"Failed to convert to MP3: {e}")
+        return None
+
+
 def handler(event, context):
     """
     Main RunPod handler function.
@@ -271,6 +303,7 @@ def handler(event, context):
     cfg_weight = event.get("cfg_weight", 0.5)
     seed = event.get("seed", 0)
     language = event.get("language", "en")
+    output_format = event.get("format", "wav")  # "wav" or "mp3"
     
     # Validate required params
     if not text:
@@ -329,11 +362,25 @@ def handler(event, context):
             }
         else:
             # Return base64 encoded audio
+            # Convert to MP3 if requested
+            if output_format.lower() == "mp3":
+                mp3_bytes = _convert_wav_to_mp3(audio_bytes)
+                if mp3_bytes:
+                    audio_bytes = mp3_bytes
+                    content_type = "audio/mpeg"
+                else:
+                    logger.warning("MP3 conversion failed, returning WAV")
+                    output_format = "wav"
+                    content_type = "audio/wav"
+            else:
+                content_type = "audio/wav"
+            
             audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
             return {
                 "status": "success",
                 "audio": audio_b64,
-                "format": "wav"
+                "format": output_format.lower(),
+                "content_type": content_type
             }
 
 

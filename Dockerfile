@@ -1,53 +1,46 @@
-FROM nvidia/cuda:12.8.1-runtime-ubuntu22.04
+# ============================================================================
+# Dockerfile for RunPod Serverless - Chatterbox TTS
+# ============================================================================
+# This Dockerfile is designed for RunPod Serverless Endpoints
+# It does NOT run a server - instead it packages the handler function
+# that RunPod will call directly
 
-ARG RUNTIME=nvidia
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DEBIAN_FRONTEND=noninteractive
-# Set the Hugging Face home directory for better model caching
 ENV HF_HOME=/app/hf_cache
+ENV TRANSFORMERS_CACHE=/app/hf_cache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libsndfile1 \
     ffmpeg \
-    python3 \
-    python3-pip \
-    python3-dev \
-    python3-venv \
-    git \
+    libsndfile1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a symlink for python3 to be python for convenience
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# Set up working directory
+# Set working directory
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+# Copy requirements first for caching
+COPY requirements-runpod.txt .
 
-# Upgrade pip and install Python dependencies
-RUN pip3 install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir -r requirements.txt
-# Conditionally install NVIDIA dependencies if RUNTIME is set to 'nvidia'
-COPY requirements-nvidia.txt .
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-runpod.txt
 
-RUN if [ "$RUNTIME" = "nvidia" ]; then \
-    pip3 install --no-cache-dir -r requirements-nvidia.txt; \
-    fi
-# Copy the rest of the application code
-COPY . .
+# Copy application code
+COPY engine.py .
+COPY handler.py .
+COPY worker.py .
+COPY models.py .
+COPY config.py .
+COPY utils.py .
+COPY download_model.py .
 
-# Create required directories for the application (fixed syntax error)
+# Create required directories
 RUN mkdir -p model_cache reference_audio outputs voices logs hf_cache
 
-# Expose the port the application will run on
-EXPOSE 8004
-
-# Command to run the application
-CMD ["python3", "server.py"]
+# For serverless, use runpod.serverless.start() via worker.py
+# RunPod will call handler() function through the worker
+CMD ["python", "worker.py"]
