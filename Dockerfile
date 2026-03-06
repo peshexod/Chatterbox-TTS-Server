@@ -44,3 +44,4 @@ RUN mkdir -p model_cache reference_audio outputs voices logs hf_cache
 # For serverless, use runpod.serverless.start() via worker.py
 # RunPod will call handler() function through the worker
 CMD ["python", "worker.py"]
+
