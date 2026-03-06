@@ -17,8 +17,6 @@ ENV TRANSFORMERS_CACHE=/app/hf_cache
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
-    cmake \
-    build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,10 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements first for caching
-COPY requirements-nvidia.txt .
+COPY requirements-runpod.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-nvidia.txt
+RUN pip install --no-cache-dir -r requirements-runpod.txt
 
 # Copy application code
 COPY engine.py .

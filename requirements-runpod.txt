@@ -1,0 +1,9 @@
+# Minimal requirements for RunPod Serverless - Chatterbox TTS
+torch>=2.4.0
+numpy>=1.24.0,<1.26.0
+chatterbox-tts>=0.1.4
+runpod
+soundfile
+pydub
+requests
+boto3
