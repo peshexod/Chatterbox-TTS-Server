@@ -80,7 +80,7 @@ def adjust_concurrency(current_concurrency):
         current_concurrency: Current number of running jobs
     
     Returns:
-        int or None: Maximum number of concurrent jobs to allow, or None for default
+        int: Maximum number of concurrent jobs to allow
     """
     gpu_util = get_gpu_utilization()
     cpu_util = get_cpu_utilization()
@@ -93,11 +93,10 @@ def adjust_concurrency(current_concurrency):
         print(f"[Concurrency] High load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Limiting to {new_limit} concurrent jobs")
         return new_limit
     
-    # If resources are available, allow more jobs
+    # If resources are available, allow more jobs (up to max workers)
     if gpu_util < GPU_THRESHOLD_LOW and cpu_util < 70 and mem_util < 70:
-        # Allow up to 2 concurrent jobs if resources available
-        if current_concurrency < 2:
-            print(f"[Concurrency] Low load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Allowing more jobs")
-            return None  # Let RunPod decide
+        print(f"[Concurrency] Low load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Allowing up to 5 jobs")
+        return 5  # Allow max 5 parallel jobs
     
-    return None  # Keep current concurrency
+    # Keep current concurrency
+    return current_concurrency
