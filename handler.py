@@ -254,32 +254,32 @@ def _convert_wav_to_mp3(wav_bytes: bytes, bitrate: str = "192k") -> Optional[byt
         return None
 
 
-def handler(event, context):
+def handler(job):
     """
     Main RunPod handler function.
     
     Args:
-        event: Dict containing request parameters
-            - text: str - Text to synthesize (required)
-            - reference_audio_url: str - URL of reference audio for voice cloning (optional)
-            - storage: dict - S3 credentials for upload (optional)
-                - endpoint: str
-                - bucket: str
-                - access_key: str
-                - secret_key: str
-                - region: str (optional)
-            - temperature: float - Sampling temperature (default: 0.8)
-            - exaggeration: float - Expressiveness (default: 0.5)
-            - cfg_weight: float - CFG weight (default: 0.5)
-            - seed: int - Random seed (default: 0)
-            - language: str - Language code (default: "en")
-            
-        context: RunPod context (unused)
+        job: RunPod job dict containing:
+            - input: dict with parameters
+                - text: str - Text to synthesize (required)
+                - reference_audio_url: str - URL of reference audio for voice cloning (optional)
+                - storage: dict - S3 credentials for upload (optional)
+                    - endpoint: str
+                    - bucket: str
+                    - access_key: str
+                    - secret_key: str
+                    - region: str (optional)
+                - temperature: float - Sampling temperature (default8)
+                - exaggeration: float -: 0. Expressiveness (default: 0.5)
+                - cfg_weight: float - CFG weight (default: 0.5)
+                - seed: int - Random seed (default: 0)
+                - language: str - Language code (default: "en")
+                - format: str - Output format "wav" or "mp3" (default: "wav")
     
     Returns:
         Dict with response:
             - If storage provided: {"status": "success", "audio_url": "..."}
-            - If no storage: {"status": "success", "audio": "<base64 encoded wav>"}
+            - If no storage: {"status": "success", "audio": "<base64 encoded audio>", "format": "..."}
             - On error: {"status": "error", "error": "..."}
     """
     global _model_loaded
@@ -292,18 +292,20 @@ def handler(event, context):
                 "error": "Failed to load TTS model"
             }
     
-    # Extract parameters from event
-    text = event.get("text", "")
-    reference_audio_url = event.get("reference_audio_url")
-    storage = event.get("storage")
+    # Extract parameters from job["input"]
+    job_input = job.get("input", {})
+    
+    text = job_input.get("text", "")
+    reference_audio_url = job_input.get("reference_audio_url")
+    storage = job_input.get("storage")
     
     # Generation parameters
-    temperature = event.get("temperature", 0.8)
-    exaggeration = event.get("exaggeration", 0.5)
-    cfg_weight = event.get("cfg_weight", 0.5)
-    seed = event.get("seed", 0)
-    language = event.get("language", "en")
-    output_format = event.get("format", "wav")  # "wav" or "mp3"
+    temperature = job_input.get("temperature", 0.8)
+    exaggeration = job_input.get("exaggeration", 0.5)
+    cfg_weight = job_input.get("cfg_weight", 0.5)
+    seed = job_input.get("seed", 0)
+    language = job_input.get("language", "en")
+    output_format = job_input.get("format", "wav")
     
     # Validate required params
     if not text:
@@ -387,11 +389,13 @@ def handler(event, context):
 # For local testing
 if __name__ == "__main__":
     # Test the handler
-    test_event = {
-        "text": "Hello, this is a test of the Chatterbox TTS system.",
-        "language": "en",
-        "temperature": 0.8
+    test_job = {
+        "input": {
+            "text": "Hello, this is a test of the Chatterbox TTS system.",
+            "language": "en",
+            "temperature": 0.8
+        }
     }
     
-    result = handler(test_event, None)
+    result = handler(test_job)
     print(f"Result: {result}")
