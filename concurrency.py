@@ -74,29 +74,43 @@ def get_memory_usage():
 def adjust_concurrency(current_concurrency):
     """
     RunPod concurrency modifier callback.
-    Called before each job is dispatched.
+    Dynamically adjusts concurrency based on GPU/CPU load.
     
     Args:
         current_concurrency: Current number of running jobs
     
     Returns:
-        int: Maximum number of concurrent jobs to allow
+        int: New concurrency level to set
     """
     gpu_util = get_gpu_utilization()
     cpu_util = get_cpu_utilization()
     mem_util = get_memory_usage()
     
-    # If any resource is overloaded, reduce concurrency
-    if gpu_util >= GPU_THRESHOLD_HIGH or cpu_util >= CPU_THRESHOLD_HIGH or mem_util >= 90:
-        # Reduce concurrency - allow fewer jobs
-        new_limit = max(1, current_concurrency - 1)
-        print(f"[Concurrency] High load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Limiting to {new_limit} concurrent jobs")
-        return new_limit
+    # Limits
+    max_concurrency = 10
+    min_concurrency = 1
     
-    # If resources are available, allow more jobs (up to max workers)
-    if gpu_util < GPU_THRESHOLD_LOW and cpu_util < 70 and mem_util < 70:
-        print(f"[Concurrency] Low load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Allowing up to 5 jobs")
-        return 5  # Allow max 5 parallel jobs
+    # Thresholds
+    gpu_high_threshold = 80
+    cpu_high_threshold = 80
+    mem_high_threshold = 80
+    
+    # Check if overloaded
+    is_overloaded = (gpu_util >= gpu_high_threshold or 
+                     cpu_util >= cpu_high_threshold or 
+                     mem_util >= mem_high_threshold)
+    
+    if is_overloaded and current_concurrency > min_concurrency:
+        # High load - reduce concurrency
+        new_level = current_concurrency - 1
+        print(f"[Concurrency] High load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Reducing to {new_level}")
+        return new_level
+    
+    elif current_concurrency < max_concurrency:
+        # Low load - increase concurrency
+        new_level = current_concurrency + 1
+        print(f"[Concurrency] Low load: GPU={gpu_util}%, CPU={cpu_util}%, MEM={mem_util}%. Increasing to {new_level}")
+        return new_level
     
     # Keep current concurrency
     return current_concurrency
