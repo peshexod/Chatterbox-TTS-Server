@@ -87,7 +87,7 @@ def adjust_concurrency(current_concurrency):
     mem_util = get_memory_usage()
     
     # Limits
-    max_concurrency = 10
+    max_concurrency = 20
     min_concurrency = 1
     
     # Thresholds
